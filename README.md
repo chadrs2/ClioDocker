@@ -11,5 +11,6 @@ Docker container enabling use of [Clio](https://github.com/MIT-SPARK/Clio) repos
 docker run -it --user ros --network=host --ipc=host -v /<path_to_clio_dataset>:/clio_dataset -v /tmp/.X11-unix:/tmp/.X11-unix:rw --gpus all --runtime nvidia --env="QT_X11_NO_MITSHM=1" --env="NVIDIA_DRIVER_CAPABILITIES=all" --env="NVIDIA_VISIBLE_DEVICES=all" --device=/dev/dri:/dev/dri --env=DISPLAY clio_ros1
 ```
 5. Go to the [Clio](https://github.com/MIT-SPARK/Clio) repository for details on running and testing with Clio.
-  1. For best results first do the **Pre-generating Open-set Semantics for a Scene** section
-  2. Then in **Running Clio** use `run_segmentation:=false` as a roslaunch argument 
+   1. For best results first do the **Pre-generating Open-set Semantics for a Scene** section
+   2. Then in **Running Clio** use `run_segmentation:=false` as a roslaunch argument
+
