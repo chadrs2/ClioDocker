@@ -30,7 +30,7 @@ WORKDIR /home/${USERNAME}
 # Environment variables
 # =========================================================
 ENV ROS_DISTRO=noetic
-ENV CATKIN_WS=/home/${USERNAME}/catkin_ws
+ENV CATKIN_WS=/home/${USERNAME}/clio_ws
 ENV DEBIAN_FRONTEND=noninteractive
 
 # =========================================================
@@ -38,6 +38,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # =========================================================
 RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     build-essential git wget cmake tmux python3-pip \
+    python3-rosdep python3-catkin-tools python3-virtualenv \ 
     python3-catkin-tools python3-rosinstall python3-rosinstall-generator python3-wstool \
     python3-vcstool python3-virtualenv python3-dev python3-setuptools \
     libopencv-dev qtbase5-dev libqt5core5a libqt5gui5 libqt5widgets5 \
@@ -48,50 +49,51 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     && sudo rm -rf /var/lib/apt/lists/*
 
 # =========================================================
-# Create Catkin workspace
+# Create and Build Clio workspace
 # =========================================================
-RUN mkdir -p $CATKIN_WS/src
-WORKDIR $CATKIN_WS
-RUN catkin init && \
-    catkin config -DCMAKE_BUILD_TYPE=Release \
-                   -a -DGTSAM_USE_SYSTEM_EIGEN=ON \
-                   --skiplist khronos_eval \
-                   -a -DSEMANTIC_INFERENCE_USE_TRT=OFF
+COPY clio_ws/ /home/${USERNAME}/clio_ws/
+RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/clio_ws
 
-# =========================================================
-# Clone Clio repository and import rosinstall
-# =========================================================
 WORKDIR $CATKIN_WS/src
-RUN git clone --recursive https://github.com/MIT-SPARK/Clio.git clio
-COPY clio.rosinstall $CATKIN_WS/src/clio/install/clio_new.rosinstall
-RUN vcs import . < clio/install/clio_new.rosinstall
+COPY clio.rosinstall $CATKIN_WS/src/clio.rosinstall
+RUN vcs import < clio.rosinstall
 
-# =========================================================
-# Install ROS package dependencies via rosdep
-# =========================================================
 WORKDIR $CATKIN_WS
-RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && rosdep update && \
-    rosdep install --from-paths src --ignore-src -r -y --rosdistro noetic --os ubuntu:focal"
 
-# =========================================================
-# Build Catkin workspace
-# =========================================================
-RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && rm -rf build devel install && catkin build"
+# Fix the C++ namespace issue in teaserpp
+# This command replaces 'vector<int>' with 'std::vector<int>'
+RUN sed -i 's/vector<int> teaser/std::vector<int> teaser/' src/teaser_plusplus/teaser/src/graph.cc
+
+
+# Configure catkin (force Release + modern C++)
+RUN catkin init && \
+    catkin config \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DGTSAM_USE_SYSTEM_EIGEN=ON \
+      --skiplist khronos_eval
+    #   -a -DSEMANTIC_INFERENCE_USE_TRT=OFF
+
+# Install package dependencies, including GTSAM
+RUN rosdep update && \
+    rosdep install --from-paths src --ignore-src -r -y && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+# Build workspace (must source ROS setup first)
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin build"
 
 # =========================================================
 # Python virtual environments for semantic packages
 # =========================================================
-RUN python3 -m virtualenv --system-site-packages -p /usr/bin/python3 /home/${USERNAME}/environments/clio_ros && \
-    source /home/${USERNAME}/environments/clio_ros/bin/activate && \
-    pip install --upgrade pip && \
-    pip install $CATKIN_WS/src/semantic_inference/semantic_inference[openset] && \
+RUN python3 -m virtualenv clio_env --system-site-packages && \
+    source /home/${USERNAME}/clio_env/bin/activate && \
+    pip install -e ./src/llm_graphs && \
     deactivate
 
-RUN python3 -m virtualenv -p /usr/bin/python3 /home/${USERNAME}/environments/clio && \
-    source /home/${USERNAME}/environments/clio/bin/activate && \
-    pip install --upgrade pip && \
-    pip install -e $CATKIN_WS/src/clio && \
-    deactivate
+# RUN python3 -m virtualenv -p /usr/bin/python3 /home/${USERNAME}/environments/clio && \
+#     source /home/${USERNAME}/environments/clio/bin/activate && \
+#     pip install --upgrade pip && \
+#     pip install -e $CATKIN_WS/src/clio && \
+#     deactivate
 
 # =========================================================
 # Setup environment for shell
