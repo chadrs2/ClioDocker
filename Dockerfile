@@ -60,11 +60,6 @@ RUN vcs import < clio.rosinstall
 
 WORKDIR $CATKIN_WS
 
-# Fix the C++ namespace issue in teaserpp
-# This command replaces 'vector<int>' with 'std::vector<int>'
-RUN sed -i 's/vector<int> teaser/std::vector<int> teaser/' src/teaser_plusplus/teaser/src/graph.cc
-
-
 # Configure catkin (force Release + modern C++)
 RUN catkin init && \
     catkin config \
@@ -84,16 +79,10 @@ RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin build"
 # =========================================================
 # Python virtual environments for semantic packages
 # =========================================================
-RUN python3 -m virtualenv clio_env --system-site-packages && \
+RUN python3 -m virtualenv /home/${USERNAME}/clio_env --system-site-packages && \
     source /home/${USERNAME}/clio_env/bin/activate && \
     pip install -e ./src/llm_graphs && \
     deactivate
-
-# RUN python3 -m virtualenv -p /usr/bin/python3 /home/${USERNAME}/environments/clio && \
-#     source /home/${USERNAME}/environments/clio/bin/activate && \
-#     pip install --upgrade pip && \
-#     pip install -e $CATKIN_WS/src/clio && \
-#     deactivate
 
 # =========================================================
 # Setup environment for shell
