@@ -60,7 +60,7 @@
 - git:
     local-name: gtsam
     uri: https://github.com/borglab/gtsam.git
-    version: develop
+    version: 4.2.0
 - git:
     local-name: numpy_eigen
     uri: https://github.com/ethz-asl/numpy_eigen.git
